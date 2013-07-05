@@ -26,17 +26,19 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 	class tribe_events_oembed {
 
 		private static $_this;
-		public $path;
+		private $oembed;
 		const MIN_WP_VERSION = '3.5';
 
 		function __construct() {
 
-			$this->path = trailingslashit( dirname( __FILE__ ) );
+			// register lazy autoloading
+			spl_autoload_register( 'self::lazy_loader' );
 
 			add_filter( 'generate_rewrite_rules', array( $this, 'add_endpoint' ) );
 			add_filter( 'query_vars',  array( $this, 'attach_query_endpoint' ) );
 			add_action( 'init', array( $this, 'init' ) );
 			add_action( 'template_redirect', array( $this, 'template_redirect' ) );
+			add_action( 'tribe_general_settings_tab_fields', array( $this, 'settings_fields' ) );
 
 
 
@@ -44,6 +46,7 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 
 		/**
 		 * plugin init methods
+		 *
 		 * @return void
 		 */
 		public function init() {
@@ -55,17 +58,20 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 
 		/**
 		 * make sure we recognize the oembed endpoint as a query var
-		 * @param  array $query_vars
+		 *
+		 * @param array   $query_vars
 		 * @return array
 		 */
 		public function attach_query_endpoint( $query_vars ) {
 			$query_vars[] = 'oembed';
+			$query_vars[] = 'format';
 			return $query_vars;
 		}
 
 		/**
 		 * add the rewrite pattern for oembed endpoint for fancy permalinks
-		 * @param obj $wp_rewrite
+		 *
+		 * @param obj     $wp_rewrite
 		 */
 		public function add_endpoint( $wp_rewrite ) {
 
@@ -77,22 +83,134 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 
 		/**
 		 * create the rewrite pattern for oembed endpoints
+		 *
 		 * @return [type] [description]
 		 */
-		public function rewrite_pattern(){
+		public function rewrite_pattern() {
 			return apply_filters( 'tribe_events_oembed/rewrite_pattern', trailingslashit( TribeEvents::instance()->getRewriteSlugSingular() ) . '([^/]+)/oembed/?$' );
 		}
 
 		/**
 		 * hook WordPress template redirects to commandeer the response handler
+		 *
 		 * @return void
 		 */
 		function template_redirect() {
 			if ( get_query_var( 'oembed' ) && get_query_var( 'post_type' ) == TribeEvents::POSTTYPE ) {
-				// event slug
-				echo get_query_var( 'name' );
+
+				// craft the proper oembed object based on current page
+				$this->set_oembed_object();
+				$output_format = get_query_var( 'format' );
+				$output_format = empty( $output_format ) ? tribe_get_option( 'oembed-output', 'json' ) : $output_format;
+
+				switch ( $output_format ) {
+					case 'xml': 
+					
+						// setup oembed as xml
+						header( "Content-type: text/xml; charset=utf-8" );
+						$xml = Array2XML::createXML( 'oembed', $this->oembed );
+						$output = $xml->saveXML();
+
+						break;
+					case 'json':
+					default:
+
+						// setup oembed as json
+						header( 'Content-Type: application/json' );
+						// do we need to output utf-8?
+						// header("Content-Type: text/javascript; charset=utf-8");
+						$output = json_encode( $this->oembed );
+
+						break;
+				}
+
+				// output the finalized format
+				echo $output;
+
+				// prevent any further output from corrupting the response
 				exit();
 			}
+		}
+
+		function set_oembed_object( $post_name = null ) {
+			if ( ! is_null( $post_name ) ) {
+				$event_posts = get_posts( array(
+						'name' => $post_name,
+						'post_type' => TribeEvents,
+						'posts_per_page' => 1
+					) );
+				if ( count( $event_posts ) > 0 ) {
+					$post = $event_posts[0];
+				} else {
+					global $post;
+				}
+			} else {
+				global $post;
+			}
+			$oembed = array(
+				'provider_name' => get_bloginfo( 'name' ),
+				'provider_url' => get_bloginfo( 'url' )
+			);
+			$this->oembed = $oembed;
+		}
+
+		/**
+		 * Inserts license key fields on license key page
+		 *
+		 * @param array   $fields List of fields
+		 * @return array Modified list of fields.
+		 */
+		public function settings_fields( $fields ) {
+
+			// we want to inject the following license settings at the end of the licenses tab
+			$fields = self::array_insert_after_key( 'tribe-form-content-start', $fields, array(
+					'oembed-heading' => array(
+						'type' => 'heading',
+						'label' => __( 'oEmbed' ),
+					),
+					'oembed-output' => array(
+						'type' => 'dropdown',
+					 	'label' => __( 'Output Format' ),
+						'validation_type' => 'options',
+						'size' => 'small',
+						'default' => 'json',
+						'options' => array( 'json', 'xml' ),
+					),
+				) );
+
+			return $fields;
+		}
+
+		public static function lazy_loader( $class_name ) {
+
+			$file = self::get_plugin_path() . 'lib/' . $class_name . '.php';
+
+			if ( file_exists( $file ) )
+				require_once $file;
+
+		}
+
+		public static function get_plugin_path() {
+			return trailingslashit( dirname( __FILE__ ) );
+		}
+
+		/**
+		 * Insert an array after a specified key within another array.
+		 *
+		 * @param unknown $key
+		 * @param unknown $source_array
+		 * @param unknown $insert_array
+		 * @return array
+		 */
+		public static function array_insert_after_key( $key, $source_array, $insert_array ) {
+			if ( array_key_exists( $key, $source_array ) ) {
+				$position = array_search( $key, array_keys( $source_array ) ) + 1;
+				$source_array = array_slice( $source_array, 0, $position, true ) + $insert_array + array_slice( $source_array, $position, NULL, true );
+			} else {
+				// If no key is found, then add it to the end of the array.
+				$source_array += $insert_array;
+			}
+			return $source_array;
 		}
 
 		/**
@@ -162,6 +280,7 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 
 	/**
 	 * when the plugin is actiated/deactivated let's flush the rewrites
+	 *
 	 * @return void
 	 */
 	function tribe_events_oembed_flush_rewrites() {
@@ -169,7 +288,7 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		TribeEvents::flushRewriteRules();
 
 	}
-	
+
 	// attach plugin activation|deactivation hooks
 	register_activation_hook( __FILE__, 'tribe_events_oembed_flush_rewrites' );
 	register_deactivation_hook( __FILE__, 'tribe_events_oembed_flush_rewrites' );
