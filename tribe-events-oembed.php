@@ -133,6 +133,7 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		}
 
 		function set_oembed_object( $post_name = null ) {
+			global $post;
 			if ( ! is_null( $post_name ) ) {
 				$event_posts = get_posts( array(
 						'name' => $post_name,
@@ -141,13 +142,21 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 					) );
 				if ( count( $event_posts ) > 0 ) {
 					$post = $event_posts[0];
-				} else {
-					global $post;
+					setup_postdata( $post );
 				}
-			} else {
-				global $post;
 			}
 			$oembed = array(
+				'type' => 'event',
+				'title' => get_the_title(),
+				'description' => get_the_content(),
+				'venue' => array(
+					),
+				'organizer' => array(
+					),
+				'url' => get_permalink(),
+				// 'thumbnail' => array(),
+				'version' => '1.0',
+				'cache_age' => tribe_get_option( 'oembed-cache-age', '3600' ),
 				'provider_name' => get_bloginfo( 'name' ),
 				'provider_url' => get_bloginfo( 'url' )
 			);
@@ -163,7 +172,7 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		public function settings_fields( $fields ) {
 
 			// we want to inject the following license settings at the end of the licenses tab
-			$fields = self::array_insert_after_key( 'tribe-form-content-start', $fields, array(
+			$fields = self::array_insert_after_key( 'defaultCurrencySymbol', $fields, array(
 					'oembed-heading' => array(
 						'type' => 'heading',
 						'label' => __( 'oEmbed' ),
@@ -174,8 +183,17 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 						'validation_type' => 'options',
 						'size' => 'small',
 						'default' => 'json',
-						'options' => array( 'json', 'xml' ),
+						'options' => array( 'json' => 'json', 'xml' => 'xml' ),
+						'tooltip' => __( 'By default when an event is requested by the oEmbed protocal it will be served in the following format if not specified by adding <code>format={format type}</code> as a query var.' ),
 					),
+					'oembed-cache-age' => array(
+						'type' => 'text',
+						'label' => __( 'Cache Age' ),
+						'tooltip' => __( 'Set the age to cache the result on the end user' ),
+						'validation_type' => 'textarea',
+						'size' => 'small',
+						'default' => '3600',
+						)
 				) );
 
 			return $fields;
