@@ -145,20 +145,39 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 					setup_postdata( $post );
 				}
 			}
+
+			$venue_id = tribe_get_venue_id();
+			$orgnaizer_id = tribe_get_organizer_id();
+
 			$oembed = array(
 				'type' => 'event',
-				'title' => get_the_title(),
+				'name' => get_the_title(),
 				'description' => get_the_content(),
+				'start_date' => '',
+				'end_date' => '',
+				'url' => array(
+					'full_event' => get_permalink(),
+					'more_info' => tribe_get_meta( 'tribe_event_website' ),
+					'prev_event' => tribe_get_prev_event_link( '&laquo; %title%' ),
+					'next_event' => tribe_get_next_event_link( '%title% &raquo;' ),
+					),
 				'venue' => array(
+					'name' => tribe_get_venue( $venue_id ),
+					'link' => tribe_get_venue_link( $venue_id, false ),
+					'url' => tribe_get_event_meta( $venue_id, '_VenueURL', true )
 					),
 				'organizer' => array(
+					'name' => tribe_get_organizer( $orgnaizer_id ),
+					'link' => tribe_get_organizer_link( $orgnaizer_id, false, false ),
+					'url' => tribe_get_event_meta( $orgnaizer_id, '_OrganizerWebsite', true )
 					),
-				'url' => get_permalink(),
-				// 'thumbnail' => array(),
+				'html' => '',
 				'version' => '1.0',
 				'cache_age' => tribe_get_option( 'oembed-cache-age', '3600' ),
-				'provider_name' => get_bloginfo( 'name' ),
-				'provider_url' => get_bloginfo( 'url' )
+				'provider' => array(
+					'name' => get_bloginfo( 'name' ),
+					'url' => get_bloginfo( 'url' )
+					)
 			);
 			$this->oembed = $oembed;
 		}
