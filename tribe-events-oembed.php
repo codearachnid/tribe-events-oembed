@@ -69,25 +69,21 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		}
 
 		/**
-		 * add the rewrite pattern for oembed endpoint for fancy permalinks
+		 * add the rewrite pattern for oembed fancy permalinks
 		 *
 		 * @param obj     $wp_rewrite
 		 */
 		public function add_endpoint( $wp_rewrite ) {
 
 			$tribe_rules = array();
-			$tribe_rules[ $this->rewrite_pattern() ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&name=' . $wp_rewrite->preg_index( 1 ) . '&oembed=1';
+
+			// service endpoint
+			$tribe_rules[ trailingslashit( TribeEvents::instance()->getRewriteSlug() ) . '/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&oembed=1';
+
+			// singluar endpoint
+			$tribe_rules[ trailingslashit( TribeEvents::instance()->getRewriteSlugSingular() ) . '([^/]+)/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&name=' . $wp_rewrite->preg_index( 1 ) . '&oembed=1';
 
 			$wp_rewrite->rules = $tribe_rules + $wp_rewrite->rules;
-		}
-
-		/**
-		 * create the rewrite pattern for oembed endpoints
-		 *
-		 * @return [type] [description]
-		 */
-		public function rewrite_pattern() {
-			return apply_filters( 'tribe_events_oembed/rewrite_pattern', trailingslashit( TribeEvents::instance()->getRewriteSlugSingular() ) . '([^/]+)/oembed/?$' );
 		}
 
 		/**
@@ -132,6 +128,31 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 			}
 		}
 
+		function get_oembed_display(){
+			ob_start();
+			?><blockquote class="tribe-event-embed"><p></p></blockquote><script async src="<?php echo $this->get_widget_js(); ?>" charset="utf-8"></script><?php
+			$html = ob_get_clean();
+			return apply_filters( 'tribe_events_oembed/get_oembed_display', $html );
+		}
+
+		function get_widget_js(){
+			return apply_filters( 'tribe_events_oembed/get_widget_js', preg_replace('#^https?:#', '', trailingslashit( plugins_url() . '/' . basename( dirname( __FILE__ ) ) ) ) . 'oembed.js' );
+		}
+
+		function get_thumbnail( $post_id = null ){
+			$post_id = TribeEvents::postIdHelper( $post_id );
+			$thumbnail = array();
+			$featured_image = wp_get_attachment_image_src( get_post_thumbnail_id( $post_id ) );
+			if( ! empty( $featured_image ) ){
+				$thumbnail = array(
+					'thumbnail_url' => $featured_image[0],
+					'thumbnail_width' => $featured_image[1],
+					'thumbnail_height' => $featured_image[2]
+					);
+			}
+			return $thumbnail;
+		}
+
 		function set_oembed_object( $post_name = null ) {
 			global $post;
 			if ( ! is_null( $post_name ) ) {
@@ -146,32 +167,16 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 				}
 			}
 
-			$venue_id = tribe_get_venue_id();
-			$orgnaizer_id = tribe_get_organizer_id();
+			// $venue_id = tribe_get_venue_id();
+			// $orgnaizer_id = tribe_get_organizer_id();
 
 			$oembed = array(
-				'type' => 'event',
-				'name' => get_the_title(),
-				'description' => get_the_content(),
-				'start_date' => '',
-				'end_date' => '',
-				'url' => array(
-					'full_event' => get_permalink(),
-					'more_info' => tribe_get_meta( 'tribe_event_website' ),
-					'prev_event' => tribe_get_prev_event_link( '&laquo; %title%' ),
-					'next_event' => tribe_get_next_event_link( '%title% &raquo;' ),
-					),
-				'venue' => array(
-					'name' => tribe_get_venue( $venue_id ),
-					'link' => tribe_get_venue_link( $venue_id, false ),
-					'url' => tribe_get_event_meta( $venue_id, '_VenueURL', true )
-					),
-				'organizer' => array(
-					'name' => tribe_get_organizer( $orgnaizer_id ),
-					'link' => tribe_get_organizer_link( $orgnaizer_id, false, false ),
-					'url' => tribe_get_event_meta( $orgnaizer_id, '_OrganizerWebsite', true )
-					),
-				'html' => '',
+				'title' => get_the_title(),
+				'html' => $this->get_oembed_display(),
+				'width' => 550,
+				// is height really required?
+				// 'height' => 250,
+				'type' => 'rich',
 				'version' => '1.0',
 				'cache_age' => tribe_get_option( 'oembed-cache-age', '3600' ),
 				'provider' => array(
@@ -179,13 +184,16 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 					'url' => get_bloginfo( 'url' )
 					)
 			);
+
+			$oembed = wp_parse_args( $this->get_thumbnail(), $oembed );
+
 			$this->oembed = $oembed;
 		}
 
 		/**
-		 * Inserts license key fields on license key page
+		 * Inserts oEmbed settings fields on Events > Settings > General
 		 *
-		 * @param array   $fields List of fields
+		 * @param array $fields List of fields
 		 * @return array Modified list of fields.
 		 */
 		public function settings_fields( $fields ) {
