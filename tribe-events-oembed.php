@@ -23,6 +23,7 @@ if ( !defined( 'ABSPATH' ) )
 	die( '-1' );
 
 if ( !class_exists( 'tribe_events_oembed' ) ) {
+
 	class tribe_events_oembed {
 
 		private static $_this;
@@ -34,13 +35,14 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 			// register lazy autoloading
 			spl_autoload_register( 'self::lazy_loader' );
 
+			// load template tags
+			include 'template-tags.php';
+
+			add_action( 'init', array( $this, 'init' ) );
 			add_filter( 'generate_rewrite_rules', array( $this, 'add_endpoint' ) );
 			add_filter( 'query_vars',  array( $this, 'attach_query_endpoint' ) );
-			add_action( 'init', array( $this, 'init' ) );
 			add_action( 'template_redirect', array( $this, 'template_redirect' ) );
 			add_action( 'tribe_general_settings_tab_fields', array( $this, 'settings_fields' ) );
-
-
 
 		}
 
@@ -50,8 +52,13 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		 * @return void
 		 */
 		public function init() {
+			
+			$tec = TribeEvents::instance();
+			$service_url = $this->rewrite_service_url();
+			wp_oembed_add_provider( TribeEvents::instance()->getRewriteSlugSingular() . '/*', $service_url );
+
 			//If the custom post type's rewrite rules have not been generated yet, flush them. (This can happen on reactivations.)
-			if ( is_array( get_option( 'rewrite_rules' ) ) && ! array_key_exists( $this->rewrite_pattern(), get_option( 'rewrite_rules' ) ) ) {
+			if ( is_array( get_option( 'rewrite_rules' ) ) && ! array_key_exists( $service_url . '/?$' , get_option( 'rewrite_rules' ) ) ) {
 				TribeEvents::flushRewriteRules();
 			}
 		}
@@ -65,6 +72,7 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		public function attach_query_endpoint( $query_vars ) {
 			$query_vars[] = 'oembed';
 			$query_vars[] = 'format';
+			$query_vars[] = 'url';
 			return $query_vars;
 		}
 
@@ -78,12 +86,23 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 			$tribe_rules = array();
 
 			// service endpoint
-			$tribe_rules[ trailingslashit( TribeEvents::instance()->getRewriteSlug() ) . '/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&oembed=1';
+			$tribe_rules[ $this->rewrite_service_url() . '/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&oembed=1';
 
 			// singluar endpoint
-			$tribe_rules[ trailingslashit( TribeEvents::instance()->getRewriteSlugSingular() ) . '([^/]+)/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&name=' . $wp_rewrite->preg_index( 1 ) . '&oembed=1';
+			$tec_single = trailingslashit( TribeEvents::instance()->getRewriteSlugSingular() );
+			$tribe_rules[ $tec_single . '([^/]+)/(\d{4}-\d{2}-\d{2})/oembed/?$' ] = 'index.php?' . TribeEvents::POSTTYPE . '=' . $wp_rewrite->preg_index(1) . "&eventDate=" . $wp_rewrite->preg_index(2) . '&oembed=1';
+			$tribe_rules[ $tec_single . '([^/]+)/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&name=' . $wp_rewrite->preg_index( 1 ) . '&oembed=1';
 
 			$wp_rewrite->rules = $tribe_rules + $wp_rewrite->rules;
+		}
+
+		/**
+		 * create the rewrite pattern for oembed service
+		 *
+		 * @return text
+		 */
+		public function rewrite_service_url() {
+			return apply_filters( 'tribe_events_oembed/rewrite_pattern', trailingslashit( TribeEvents::instance()->getRewriteSlug() ) . 'oembed' );
 		}
 
 		/**
@@ -92,7 +111,16 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		 * @return void
 		 */
 		function template_redirect() {
+
 			if ( get_query_var( 'oembed' ) && get_query_var( 'post_type' ) == TribeEvents::POSTTYPE ) {
+
+				// detected service request
+				// TODO add service parsing
+				if ( $id = get_query_var( 'id' ) ){
+
+				} elseif ( $url = get_query_var( 'url' ) ){
+
+				}
 
 				// craft the proper oembed object based on current page
 				$this->set_oembed_object();
@@ -128,10 +156,23 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 			}
 		}
 
-		function get_oembed_display(){
+		/**
+		 * build the oembed rich display
+		 * @return string
+		 * @uses global $post
+		 */
+		function get_rich_html(){
+			global $post;
+
+			// include template file
 			ob_start();
-			?><blockquote class="tribe-event-embed"><p></p></blockquote><script async src="<?php echo $this->get_widget_js(); ?>" charset="utf-8"></script><?php
+			include TribeEventsTemplates::getTemplateHierarchy( 'oembed', array( 'namespace' => 'oembed', 'plugin_path' => self::get_plugin_path() ) );
 			$html = ob_get_clean();
+
+			// condense the rich output by removing unneeded whitespace
+			$html = preg_replace( array( '/\s{2,}/', '/[\t\n]/' ), '', $html);
+
+			// return the request
 			return apply_filters( 'tribe_events_oembed/get_oembed_display', $html );
 		}
 
@@ -139,6 +180,11 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 			return apply_filters( 'tribe_events_oembed/get_widget_js', preg_replace('#^https?:#', '', trailingslashit( plugins_url() . '/' . basename( dirname( __FILE__ ) ) ) ) . 'oembed.js' );
 		}
 
+		/**
+		 * get the event thumbnail
+		 * @param  int $post_id
+		 * @return array
+		 */
 		function get_thumbnail( $post_id = null ){
 			$post_id = TribeEvents::postIdHelper( $post_id );
 			$thumbnail = array();
@@ -153,6 +199,10 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 			return $thumbnail;
 		}
 
+		/**
+		 * build the oembed object for request
+		 * @param string $post_name
+		 */
 		function set_oembed_object( $post_name = null ) {
 			global $post;
 			if ( ! is_null( $post_name ) ) {
@@ -172,17 +222,15 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 
 			$oembed = array(
 				'title' => get_the_title(),
-				'html' => $this->get_oembed_display(),
+				'html' => $this->get_rich_html(),
 				'width' => 550,
 				// is height really required?
 				// 'height' => 250,
 				'type' => 'rich',
 				'version' => '1.0',
 				'cache_age' => tribe_get_option( 'oembed-cache-age', '3600' ),
-				'provider' => array(
-					'name' => get_bloginfo( 'name' ),
-					'url' => get_bloginfo( 'url' )
-					)
+				'provider_name' => get_bloginfo( 'name' ),
+				'provider_url' => get_bloginfo( 'url' )
 			);
 
 			$oembed = wp_parse_args( $this->get_thumbnail(), $oembed );
