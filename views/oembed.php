@@ -9,5 +9,6 @@
 
 if ( !defined('ABSPATH') ) { die('-1'); } ?><blockquote class="tribe-event-embed">
 	<p><?php the_title(); ?></p>
+	<a href="<?php the_permalink(); ?>">See Event</a>
 </blockquote>
 <?php tribe_events_oembed_js(); ?>
