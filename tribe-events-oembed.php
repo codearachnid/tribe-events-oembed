@@ -90,7 +90,8 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 
 			// singluar endpoint
 			$tec_single = trailingslashit( TribeEvents::instance()->getRewriteSlugSingular() );
-			$tribe_rules[ $tec_single . '([^/]+)/(\d{4}-\d{2}-\d{2})/oembed/?$' ] = 'index.php?' . TribeEvents::POSTTYPE . '=' . $wp_rewrite->preg_index(1) . "&eventDate=" . $wp_rewrite->preg_index(2) . '&oembed=1';
+			// $tribe_rules[ $tec_single . '([^/]+)/(\d{4}-\d{2}-\d{2})/oembed/?$' ] = 'index.php?' . TribeEvents::POSTTYPE . '=' . $wp_rewrite->preg_index(1) . "&eventDate=" . $wp_rewrite->preg_index(2) . '&oembed=1';
+			$tribe_rules[ $tec_single . '([^/]+)/(\d{4}-\d{2}-\d{2})/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&name=' . $wp_rewrite->preg_index(1) . "&eventDate=" . $wp_rewrite->preg_index(2) . '&oembed=1';
 			$tribe_rules[ $tec_single . '([^/]+)/oembed/?$' ] = 'index.php?post_type=' . TribeEvents::POSTTYPE . '&name=' . $wp_rewrite->preg_index( 1 ) . '&oembed=1';
 
 			$wp_rewrite->rules = $tribe_rules + $wp_rewrite->rules;
@@ -113,14 +114,6 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		function template_redirect() {
 
 			if ( get_query_var( 'oembed' ) && get_query_var( 'post_type' ) == TribeEvents::POSTTYPE ) {
-
-				// detected service request
-				// TODO add service parsing
-				if ( $id = get_query_var( 'id' ) ){
-
-				} elseif ( $url = get_query_var( 'url' ) ){
-
-				}
 
 				// craft the proper oembed object based on current page
 				$this->set_oembed_object();
@@ -204,7 +197,29 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		 * @param string $post_name
 		 */
 		function set_oembed_object( $post_name = null ) {
-			global $post;
+			global $post, $wp_query;
+
+			// detected service request
+			// TODO add service parsing
+			if ( $id = get_query_var( 'id' ) ){
+
+			} elseif ( $url = get_query_var( 'url' ) ){
+
+				$pseudo_wp = new tribe_ombed_service;
+				$pseudo_wp->parse_request( $url );
+				$query_vars = wp_parse_args( $pseudo_wp->matched_query );
+				unset( $query_vars['page'] );
+				print_r($query_vars);
+				if( !empty( $query_vars['tribe_events'] ) ){
+					$query_vars['post_type'] = TribeEvents::POSTTYPE;
+					$query_vars['name'] = $query_vars['tribe_events'];
+				}
+				$wp_query = new WP_Query( $query_vars );
+				print_r($wp_query);
+				$post = $wp_query->post;
+
+			}
+
 			if ( ! is_null( $post_name ) ) {
 				$event_posts = get_posts( array(
 						'name' => $post_name,
