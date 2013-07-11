@@ -121,6 +121,12 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 				$output_format = empty( $output_format ) ? tribe_get_option( 'oembed-output', 'json' ) : $output_format;
 
 				switch ( $output_format ) {
+					case 'html':
+
+						// really for debugging purpose
+						$output = $this->oembed['html'];
+
+						break;
 					case 'xml': 
 					
 						// setup oembed as xml
@@ -170,7 +176,9 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		}
 
 		function get_widget_js(){
-			return apply_filters( 'tribe_events_oembed/get_widget_js', preg_replace('#^https?:#', '', trailingslashit( plugins_url() . '/' . basename( dirname( __FILE__ ) ) ) ) . 'oembed.js' );
+			$file = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? 'oembed.js' : 'oembed.min.js';
+			$url = preg_replace('#^https?:#', '', trailingslashit( plugins_url() . '/' . basename( dirname( __FILE__ ) ) ) ) . $file;
+			return apply_filters( 'tribe_events_oembed/get_widget_js', $url );
 		}
 
 		/**
@@ -283,7 +291,16 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 						'validation_type' => 'textarea',
 						'size' => 'small',
 						'default' => '3600',
-						)
+						),
+					'oembed-featured-image' => array(
+						'type' => 'dropdown',
+					 	'label' => __( 'Event Image Size' ),
+						'validation_type' => 'options',
+						'size' => 'medium',
+						'default' => 'thumbnail',
+						'options' => array( 'thumbnail' => 'Thumbnail', 'medium' => 'Medium', 'large' => 'Large', 'full' => 'Original' ),
+						'tooltip' => __( 'The size of the image to use in the embed for the event featured image.' ),
+					),
 				) );
 
 			return $fields;
