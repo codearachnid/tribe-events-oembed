@@ -217,13 +217,13 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 				$pseudo_wp->parse_request( $url );
 				$query_vars = wp_parse_args( $pseudo_wp->matched_query );
 				unset( $query_vars['page'] );
-				print_r($query_vars);
+				// print_r($query_vars);
 				if( !empty( $query_vars['tribe_events'] ) ){
 					$query_vars['post_type'] = TribeEvents::POSTTYPE;
 					$query_vars['name'] = $query_vars['tribe_events'];
 				}
 				$wp_query = new WP_Query( $query_vars );
-				print_r($wp_query);
+				// print_r($wp_query);
 				$post = $wp_query->post;
 
 			}
