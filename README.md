@@ -6,6 +6,9 @@ serve your events via oEmbed directly through `http://{domain}/{event}/{slug}/oe
 
 The service endpoint requires the url or id parameter for the event you are requesting to serve.
 
+If requested the html value will display in a similar layout as 
+![image](https://raw.github.com/codearachnid/tribe-events-oembed/master/screenshot.png)
+
 
 ## Known Limitations
 
