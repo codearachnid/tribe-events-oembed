@@ -12,7 +12,4 @@ If requested the html value will display in a similar layout as
 
 ## Known Limitations
 
-* currently recurring events are not recognized
-* self embedded links may not work as expected
-* sometimes random issues with permalinks, fix by flushing permalinks. Settings > Permalinks > Save
-
+* some issues with recurring events not fully functional have been experienced
