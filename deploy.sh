@@ -3,9 +3,9 @@
 # The difference is that this script lives in the plugin's git repo & doesn't require an existing SVN repo.
  
 # main config
-PLUGINSLUG="gravity-forms-notification-attachments"
+PLUGINSLUG="tribe-events-oembed"
 CURRENTDIR=`pwd`
-MAINFILE="gf-notification-attachment.php" # this should be the name of your main php file in the wordpress plugin
+MAINFILE="tribe-events-oembed.php" # this should be the name of your main php file in the wordpress plugin
  
 # git config
 GITPATH="$CURRENTDIR/" # this file should be in the base of your git repository
