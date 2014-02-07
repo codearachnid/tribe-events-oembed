@@ -3,7 +3,7 @@ Contributors: codearachnid
 Tags: tribe,events calendar,calendar, oembed, embed, date, dates, event, events, link
 Requires at least: 3.6
 Tested up to: 3.8
-Stable tag: 0.1
+Stable tag: 0.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 

@@ -4,7 +4,7 @@
  * Plugin Name: The Events Calendar: oEmbed
  * Plugin URI:
  * Description: An addon to enable oEmbed functionality on your WordPress The Events Calendar plugin.
- * Version: 0.1
+ * Version: 0.2
  * Author: Timothy Wood (@codearachnid)
  * Author URI: http://www.codearachnid.com
  * Author Email: tim@imaginesimplicity.com
@@ -54,8 +54,8 @@ if ( !class_exists( 'tribe_events_oembed' ) ) {
 		public function init() {
 			
 			$tec = TribeEvents::instance();
-			$service_url = $this->rewrite_service_url();
-			wp_oembed_add_provider( TribeEvents::instance()->getRewriteSlugSingular() . '/*', $service_url );
+			$service_url = get_site_url() . '/' . $this->rewrite_service_url();
+			wp_oembed_add_provider( get_site_url() . '/' . TribeEvents::instance()->getRewriteSlugSingular() . '/*', $service_url );
 
 			//If the custom post type's rewrite rules have not been generated yet, flush them. (This can happen on reactivations.)
 			if ( is_array( get_option( 'rewrite_rules' ) ) && ! array_key_exists( $service_url . '/?$' , get_option( 'rewrite_rules' ) ) ) {
